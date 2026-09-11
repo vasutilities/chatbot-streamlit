@@ -11,7 +11,7 @@ st.set_page_config(page_title="ElectroStore", page_icon="🛍️", layout="wide"
 # Setup Groq Client
 GROQ_API_KEY = os.getenv(
     "GROQ_API_KEY",
-    "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",
+    "--- IGNORE ---",
 )
 client = Groq(api_key=GROQ_API_KEY)
 
