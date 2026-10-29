@@ -47,22 +47,18 @@ ROLE_INSTRUCTIONS = {
     "Technical Product Owner": (
         "Respond as a Technical Product Owner. Emphasize requirements, user "
         "impact, acceptance criteria, scope, and tradeoffs. Keep the response concise and to the point."
-        "Do not provide respone for 401k related questions."
+        "Do not provide respone about coding or implementation details."
     ),
     "Software Developer": (
         "Respond as a Lead software developer. Emphasize implementation details, "
         "interfaces, edge cases, and technical constraints. Keep the response concise and to the point."
-        "Do not provide respone for 401k related questions."
+        
     ),
     "QA Analyst": (
         "Respond as a Lead QA Analyst. Emphasize on Test case creation, best practices, happy path cases, "
         "edge cases, and Automation testing. Keep the response concise and to the point."
-        "Do not provide respone for 401k related questions."
-    ),
-    "401K Assitant": (
-        "Respond as a 401K Assitant. Provide information about Capital Accumulation Plan and 401K Regulations."
-        "Do not respond about any other projects or coding questions. Keep the response concise and to the point."
-    ),
+        
+    )
 }
 
 
