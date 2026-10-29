@@ -5,17 +5,14 @@ Requires GROQ_API_KEY in the environment and the project's LangChain/Chroma,
 sentence-transformers, and Streamlit dependencies.
 """
 
-import hashlib
 import os
 import re
 from pathlib import Path
 from zipfile import ZipFile
 from xml.etree import ElementTree as ET
 
-import chromadb
 import streamlit as st
 from groq import Groq
-from sentence_transformers import SentenceTransformer
 import base64
 from dotenv import dotenv_values, load_dotenv
 
@@ -42,9 +39,6 @@ def get_api_key():
 GROQ_API_KEY = get_api_key()
 BASE_DIR = Path(__file__).resolve().parent
 DOCS_DIR = BASE_DIR / "docs"
-CHROMA_DIR = BASE_DIR / "chroma_db"
-COLLECTION = "udx_rag_1000_150"
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 CHUNK_TOKENS = 1000
 OVERLAP_TOKENS = 100
 TOP_K = 4
@@ -104,43 +98,27 @@ def read_document(path: Path) -> str:
     raise ValueError(f"Unsupported document type: {path.suffix}")
 
 
-def chunk_text(text: str, tokenizer) -> list[str]:
-    """Split text into 1000-token chunks with 80-token overlap."""
-    token_ids = tokenizer.encode(text, add_special_tokens=False)
+def chunk_text(text: str) -> list[str]:
+    """Split text into approximately 1000-word chunks with overlap."""
+    words = text.split()
     chunks = []
     step = CHUNK_TOKENS - OVERLAP_TOKENS
-    for start in range(0, len(token_ids), step):
-        piece = token_ids[start : start + CHUNK_TOKENS]
+    for start in range(0, len(words), step):
+        piece = words[start : start + CHUNK_TOKENS]
         if not piece:
             break
-        chunks.append(tokenizer.decode(piece, skip_special_tokens=True))
-        if start + CHUNK_TOKENS >= len(token_ids):
+        chunks.append(" ".join(piece))
+        if start + CHUNK_TOKENS >= len(words):
             break
     return chunks
 
 
-@st.cache_resource
-def get_embedder():
-    return SentenceTransformer(EMBEDDING_MODEL)
-
-
-@st.cache_resource
-def get_tokenizer():
-    # Use the same tokenizer as the local embedding model for deterministic
-    # chunk sizing without requiring an additional tokenizer package.
-    return get_embedder().tokenizer
-
-
+@st.cache_data
 def ingest_documents():
-    """Index every DOCX and PDF in docs/, refreshing changed source files."""
+    """Load document chunks for lightweight, in-memory retrieval."""
     if not DOCS_DIR.is_dir():
         raise FileNotFoundError(f"Docs folder not found: {DOCS_DIR}")
-    client = chromadb.PersistentClient(path=str(CHROMA_DIR))
-    collection = client.get_or_create_collection(
-        COLLECTION, metadata={"description": "RAG chunks from docs/*.docx"}
-    )
-    embedder = get_embedder()
-    tokenizer = get_tokenizer()
+    chunks = []
     paths = sorted(
         path
         for path in DOCS_DIR.iterdir()
@@ -150,42 +128,35 @@ def ingest_documents():
         raise FileNotFoundError(f"No .docx or .pdf documents found in {DOCS_DIR}")
 
     for path in paths:
-        file_hash = hashlib.sha256(path.read_bytes()).hexdigest()
-        prior = collection.get(where={"source": path.name}, include=["metadatas"])
-        ids = prior["ids"]
-        metadata = prior.get("metadatas") or []
-        if ids and all(item.get("file_hash") == file_hash for item in metadata):
-            continue
-        if ids:
-            collection.delete(ids=ids)
         extracted_text = read_document(path)
         if not extracted_text:
             st.warning(f"No extractable text in {path.name}; it may be a scanned PDF.")
             continue
-        chunks = chunk_text(extracted_text, tokenizer)
-        if not chunks:
+        document_chunks = chunk_text(extracted_text)
+        if not document_chunks:
             continue
-        vectors = embedder.encode(chunks, show_progress_bar=False).tolist()
-        collection.add(
-            ids=[f"{path.stem}-{i}" for i in range(len(chunks))],
-            documents=chunks,
-            embeddings=vectors,
-            metadatas=[
-                {"source": path.name, "chunk": i, "file_hash": file_hash}
-                for i in range(len(chunks))
-            ],
+        chunks.extend(
+            {
+                "text": chunk,
+                "metadata": {"source": path.name, "chunk": index},
+            }
+            for index, chunk in enumerate(document_chunks)
         )
-    return collection
+    return chunks
 
 
 def retrieve(collection, question: str):
-    vector = get_embedder().encode([question]).tolist()[0]
-    result = collection.query(
-        query_embeddings=[vector],
-        n_results=TOP_K,
-        include=["documents", "metadatas", "distances"],
+    """Return chunks with the highest case-insensitive keyword overlap."""
+    question_words = set(re.findall(r"\b\w+\b", question.lower()))
+    ranked = sorted(
+        collection,
+        key=lambda item: sum(
+            word in question_words
+            for word in set(re.findall(r"\b\w+\b", item["text"].lower()))
+        ),
+        reverse=True,
     )
-    return list(zip(result["documents"][0], result["metadatas"][0]))
+    return [(item["text"], item["metadata"]) for item in ranked[:TOP_K]]
 
 
 def answer_question(client, collection, question: str, role: str, history: list[dict]):
@@ -266,7 +237,7 @@ def main():
         st.stop()
 
     st.caption(
-        f"Indexed {collection.count()} chunks · {CHUNK_TOKENS} tokens each · {OVERLAP_TOKENS} token overlap · Top {TOP_K} chunks set as Context"
+        f"Indexed {len(collection)} chunks · approximately {CHUNK_TOKENS} words each · {OVERLAP_TOKENS} word overlap · Top {TOP_K} chunks set as Context"
     )
     # with st.expander("Inspect indexed chunk metadata"):
     #     indexed = collection.get(
