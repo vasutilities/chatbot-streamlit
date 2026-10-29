@@ -19,6 +19,8 @@ from sentence_transformers import SentenceTransformer
 import base64
 from dotenv import dotenv_values, load_dotenv
 
+st.set_page_config(page_title="UDX RAG Chatbot", page_icon="🤖")
+
 def get_api_key():
     """Retrieve Groq API key securely from multiple fallback sources."""
     # 1. Check local .env file
@@ -246,7 +248,6 @@ st.markdown(
 
 
 def main():
-    st.set_page_config(page_title="UDX RAG Chatbot", page_icon="🤖")
     st.title("UDX Project Assistant")
     st.caption(
         "All answers are grounded in the reference documents provided within the directory"
