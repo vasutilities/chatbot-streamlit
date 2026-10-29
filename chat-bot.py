@@ -233,7 +233,7 @@ def main():
         st.stop()
 
     st.caption(
-        f"Indexed {len(collection)} chunks · approximately {CHUNK_TOKENS} words each · {OVERLAP_TOKENS} word overlap · Top {TOP_K} chunks set as Context"
+        f"Indexed {len(collection)} chunks · approximately {CHUNK_TOKENS} tokens each · {OVERLAP_TOKENS} tokens overlap · Top {TOP_K} chunks set as Context"
     )
     # with st.expander("Inspect indexed chunk metadata"):
     #     indexed = collection.get(
