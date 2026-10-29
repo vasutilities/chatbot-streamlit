@@ -16,7 +16,7 @@ from groq import Groq
 import base64
 from dotenv import dotenv_values, load_dotenv
 
-st.set_page_config(page_title="UDX RAG Chatbot", page_icon="🤖")
+st.set_page_config(page_title="Uni-QE RAG Chatbot", page_icon="🤖")
 
 def get_api_key():
     """Retrieve Groq API key securely from multiple fallback sources."""
@@ -215,7 +215,7 @@ st.markdown(
 
 
 def main():
-    st.title("UDX Project Assistant")
+    st.title("Uni-QE Project Assistant")
     st.caption(
         "All answers are grounded in the reference documents provided within the directory"
     )
@@ -254,7 +254,7 @@ def main():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    if prompt := st.chat_input("Ask questions about your UDX Project."):
+    if prompt := st.chat_input("Ask questions about your Uni-QE Project."):
         history = st.session_state.messages[-5:]
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
